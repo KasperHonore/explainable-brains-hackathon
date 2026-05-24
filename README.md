@@ -26,7 +26,7 @@ The challenge is to automatically identify the most informative signal patterns 
 represent the diversity of the dataset, enabling models to generalize well while
 minimizing the need for manual labeling.
 
-*Standard laptop is sufficient — embeddings are precomputed. GPU useful only if you want to run custom models — see [LightningAI](#lightningai-studio) below.*
+*Standard laptop should be sufficient. GPU useful only if you want to run custom models: see [LightningAI](#lightningai-studio) below.*
 
 **→ [Challenge A — solution, data, and quick start](CHALLENGE_A.md)**
 
