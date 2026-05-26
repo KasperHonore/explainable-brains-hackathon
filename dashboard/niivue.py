@@ -14,7 +14,7 @@ from pathlib import Path
 import streamlit.components.v1 as components
 
 # Pin a recent build — @latest broke layouts before.
-NIIVUE_CDN = "https://unpkg.com/@niivue/niivue@0.68.1/dist/niivue.umd.js"
+NIIVUE_CDN = "https://unpkg.com/@niivue/niivue@0.69.0/dist/niivue.umd.js"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
@@ -268,6 +268,37 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
       return {{ nx: hdr.dims[1], ny: hdr.dims[2], nz: hdr.dims[3] }};
     }}
 
+    // Niivue's 3D clip plane only clips the base (anatomy) volume — overlay
+    // voxels float past the cut. We mirror the cut in the overlay's voxel
+    // data: snapshot the original on first call, then on each slider tick
+    // zero the slab the user has cut away and restore everything else.
+    const overlayOriginals = new WeakMap();
+    function snapshotOverlay(nv) {{
+      if (nv.volumes.length < 2 || overlayOriginals.has(nv)) return;
+      const orig = nv.volumes[1].img;
+      // Float32 by default; clone whichever TypedArray the volume holds.
+      const Ctor = orig.constructor;
+      overlayOriginals.set(nv, new Ctor(orig));
+    }}
+    function maskOverlay(nv, frac) {{
+      if (nv.volumes.length < 2) return;
+      const orig = overlayOriginals.get(nv);
+      if (!orig) return;
+      const img = nv.volumes[1].img;
+      const {{ nx, ny, nz }} = volumeDims(nv);
+      const sliceVox = nx * ny;
+      // Match the clip plane visual: the cut activates near frac ≈ 0.5 and
+      // grows linearly to the whole volume at frac = 1. Below the threshold
+      // no voxels are removed (img == orig).
+      const cutStart = 0.5;
+      const cutFrac = frac <= cutStart ? 0 : (frac - cutStart) / (1 - cutStart);
+      const cutVoxZ = Math.max(0, Math.min(nz, Math.floor(cutFrac * nz)));
+      // Restore range [cutVoxZ .. nz), zero range [0 .. cutVoxZ).
+      img.set(orig.subarray(cutVoxZ * sliceVox), cutVoxZ * sliceVox);
+      img.fill(0, 0, cutVoxZ * sliceVox);
+      nv.updateGLVolume(nv.volumes[1]);
+    }}
+
     function applyZ(z) {{
       const slider = document.getElementById("zSlider");
       const label = document.getElementById("zLabel");
@@ -285,6 +316,8 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
         if (typeof nv.setClipPlane === "function") {{
           nv.setClipPlane([depth, 0, 90]);
         }}
+        snapshotOverlay(nv);
+        maskOverlay(nv, frac);
         nv.drawScene();
         if (nv === viewers[0]) {{
           label.textContent = `slice ${{zi + 1}} / ${{nz}}`;
