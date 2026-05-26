@@ -114,10 +114,8 @@ def _html_single(spec: ViewerSpec, *, height: int) -> str:
     </div>
     {_z_rail_html()}
   </div>
-  <script>
-    {_init_script([spec], volumes_by_canvas={spec.canvas_id: volumes_js})}
-  </script>
-"""
+""",
+        init_script=_init_script([spec], volumes_by_canvas={spec.canvas_id: volumes_js}),
     )
 
 
@@ -145,10 +143,8 @@ def _html_compare(specs: list[ViewerSpec], *, height: int) -> str:
     </div>
     {_z_rail_html()}
   </div>
-  <script>
-    {init}
-  </script>
 """,
+        init_script=init,
     )
 
 
@@ -161,7 +157,7 @@ def _z_rail_html() -> str:
     </div>"""
 
 
-def _html_shell(*, height: int, body: str) -> str:
+def _html_shell(*, height: int, body: str, init_script: str) -> str:
     return f"""<!doctype html>
 <html>
 <head>
@@ -211,6 +207,9 @@ def _html_shell(*, height: int, body: str) -> str:
 {body}
   <div id="status">loading…</div>
   <script src="{NIIVUE_CDN}"></script>
+  <script>
+    {init_script}
+  </script>
 </body>
 </html>"""
 
@@ -252,6 +251,7 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
         nv.opts.multiplanarShowRender = 0; // SHOW_RENDER.NEVER
       }}
       viewers.push(nv);
+      window.__brainViewers = viewers;
       return nv;
     }}
 
