@@ -16,6 +16,7 @@ import os
 import streamlit as st
 
 from dashboard import data, llm
+from dashboard.classic import render_classic_tab
 from dashboard.niivue import BrainViewMode, VolumeLayer, render_brain_view
 from dashboard.panel import (
     render_panel,
@@ -25,7 +26,7 @@ from dashboard.panel import (
 
 CHAT_DISABLED_BANNER = (
     "Chat disabled — `ANTHROPIC_API_KEY` not found. The 3D viewer, "
-    "Top regions, and Region detail panels still work. Export the key "
+    "Top regions panel still works. Export the key "
     "and restart Streamlit to enable chat."
 )
 
@@ -70,6 +71,16 @@ def main() -> None:
         st.error(CHAT_DISABLED_BANNER)
 
     st.title("Brain Earth — c-Fos response to Semaglutide")
+
+    tab_3d, tab_classic = st.tabs(["3D viewer", "Classic plots"])
+
+    with tab_3d:
+        _render_3d_tab()
+    with tab_classic:
+        render_classic_tab()
+
+
+def _render_3d_tab() -> None:
     col_view, col_panel = st.columns([2, 1], gap="medium")
 
     with col_view:
@@ -134,12 +145,7 @@ def main() -> None:
 
     with col_panel:
         render_top_regions_panel()
-        st.divider()
-        st.subheader("Region detail")
-        render_panel(st.session_state.selected_acronyms)
-        if st.session_state.selected_acronyms:
-            st.divider()
-            render_region_spatial_panel(st.session_state.selected_acronyms[0])
+        # Region detail module removed for hackathon simplification.
 
 
 if __name__ == "__main__":

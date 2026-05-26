@@ -1,0 +1,32 @@
+- generic [ref=e3]:
+  - banner [ref=e6]:
+    - generic [ref=e9]:
+      - button "Deploy" [ref=e11] [cursor=pointer]:
+        - generic [ref=e13]: Deploy
+      - button "Main menu" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+  - generic [ref=e19]:
+    - heading "Brain Earth — c-Fos response to Semaglutide" [level=1] [ref=e24]:
+      - text: Brain Earth — c-Fos response to Semaglutide
+      - generic [ref=e25]:
+        - link "Link to heading":
+          - /url: "#brain-earth-c-fos-response-to-semaglutide"
+          - img
+    - generic [ref=e29]:
+      - radiogroup "Brain view" [ref=e32] [cursor=pointer]:
+        - generic [ref=e33]:
+          - radio "Difference overlay (G002 − G001)" [checked]
+          - paragraph [ref=e38]: Difference overlay (G002 − G001)
+        - generic [ref=e39]:
+          - radio "Compare groups (side by side)"
+          - paragraph [ref=e44]: Compare groups (side by side)
+      - paragraph [ref=e49]: 3D anatomy + c-Fos difference. Red = up in Semaglutide, blue = down. Use the Z slider on the right to cut through the volume.
+      - iframe [ref=e51]:
+        - generic [active] [ref=f16e1]:
+          - generic [ref=f16e2]:
+            - generic [ref=f16e5]: G002 − G001
+            - generic [ref=f16e6]:
+              - generic [ref=f16e7]: Z
+              - slider [ref=f16e8]: "133"
+              - generic [ref=f16e9]: slice 134 / 268
+          - generic [ref=f16e10]: Drag to rotate · Z slider cuts the volume
