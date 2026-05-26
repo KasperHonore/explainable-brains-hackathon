@@ -147,6 +147,24 @@ def get_regions_image() -> sitk.Image:
     return sitk.ReadImage(str(get_regions_path()))
 
 
+@st.cache_resource
+def get_anatomy_image() -> sitk.Image:
+    """Anatomy NIfTI as a SimpleITK image (for the region-spatial panel)."""
+    return sitk.ReadImage(str(get_anatomy_path()))
+
+
+@st.cache_resource
+def get_g001_median_image() -> sitk.Image:
+    """G001 c-Fos median signal NIfTI as a SimpleITK image."""
+    return sitk.ReadImage(str(get_g001_median_path()))
+
+
+@st.cache_resource
+def get_g002_median_image() -> sitk.Image:
+    """G002 c-Fos median signal NIfTI as a SimpleITK image."""
+    return sitk.ReadImage(str(get_g002_median_path()))
+
+
 # ---------------------------------------------------------------------------
 # Click-to-region resolution
 # ---------------------------------------------------------------------------

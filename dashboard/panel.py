@@ -3,9 +3,13 @@
 `render_panel` shows full stats for a list of acronyms (from chat or top-N click).
 `render_top_regions_panel` shows the leaderboard of regions with the largest
 |log2 fold change|, giving Goal 2 a chat-free path on cold start.
+`render_region_spatial_panel` shows G001 vs G002 c-Fos signal side-by-side at
+the selected region (orthogonal slices, cropped to bbox).
 """
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -77,6 +81,82 @@ def render_top_regions_panel() -> None:
         log2fc = float(row["log2_fold_change"])
         cols[2].write(f"{log2fc:+.2f}")
         cols[3].write(f"{float(row['p_value']):.3g}")
+
+
+# ---------------------------------------------------------------------------
+# Region-spatial side-by-side panel
+# ---------------------------------------------------------------------------
+
+
+_AXIS_LABELS = ("Axial", "Coronal", "Sagittal")
+_GROUP_LABELS = ("Vehicle (G001)", "Semaglutide (G002)")
+_SIGNAL_FLOOR_FRACTION = 0.05  # threshold below which signal is hidden
+
+
+def _orthogonal_slices(volume: np.ndarray, centroid: tuple[int, int, int]):
+    """Return (axial, coronal, sagittal) 2D slices through the centroid."""
+    z, y, x = centroid
+    return (volume[z, :, :], volume[:, y, :], volume[:, :, x])
+
+
+def render_region_spatial_panel(acronym: str) -> None:
+    """G001 vs G002 c-Fos signal at the region, 2 rows × 3 columns."""
+    st.subheader(f"Spatial — {acronym}")
+    crop = domain.region_spatial_crop(acronym)
+    if crop is None:
+        st.caption("No spatial mask for this region in the atlas labelmap")
+        return
+
+    vmin, vmax = crop.signal_scale
+    if vmax <= vmin:
+        vmax = vmin + 1.0
+    signal_floor = vmin + (vmax - vmin) * _SIGNAL_FLOOR_FRACTION
+    anatomy_vmax = float(np.percentile(crop.anatomy, 99)) or 1.0
+
+    fig, axes = plt.subplots(2, 3, figsize=(7.5, 5.2), facecolor="#0a0a0a")
+    fig.suptitle(f"Spatial — {acronym}", color="white", fontsize=12)
+
+    signals = (crop.signal_g001, crop.signal_g002)
+    for row, (group_label, signal) in enumerate(zip(_GROUP_LABELS, signals)):
+        anat_slices = _orthogonal_slices(crop.anatomy, crop.centroid)
+        sig_slices = _orthogonal_slices(signal, crop.centroid)
+        mask_slices = _orthogonal_slices(crop.mask.astype(np.float32), crop.centroid)
+        for col in range(3):
+            ax = axes[row, col]
+            ax.imshow(
+                anat_slices[col], cmap="gray", vmin=0.0, vmax=anatomy_vmax,
+                origin="lower", interpolation="nearest",
+            )
+            masked_signal = np.ma.masked_where(
+                sig_slices[col] < signal_floor, sig_slices[col]
+            )
+            ax.imshow(
+                masked_signal, cmap="hot", alpha=0.65,
+                vmin=vmin, vmax=vmax, origin="lower", interpolation="nearest",
+            )
+            try:
+                ax.contour(
+                    mask_slices[col], levels=[0.5], colors=["cyan"],
+                    linewidths=0.6, origin="lower",
+                )
+            except ValueError:
+                pass  # all-zero slice
+            ax.set_xticks([])
+            ax.set_yticks([])
+            for spine in ax.spines.values():
+                spine.set_color("#444")
+            if row == 0:
+                ax.set_title(_AXIS_LABELS[col], color="white", fontsize=9)
+            if col == 0:
+                ax.set_ylabel(group_label, color="white", fontsize=9)
+
+    fig.tight_layout(rect=[0, 0, 1, 0.94])
+    st.pyplot(fig, clear_figure=True, use_container_width=True)
+    plt.close(fig)
+    st.caption(
+        f"Anatomy gray + c-Fos warm overlay, region outlined in cyan. "
+        f"Slices at the region centroid; shared color scale (vmax={vmax:.2g})."
+    )
 
 
 def render_panel(selected_acronyms: list[str]) -> None:

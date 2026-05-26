@@ -249,3 +249,78 @@ def mask_for_region(acronym: str) -> Optional[np.ndarray]:
         return None
     arr = sitk.GetArrayFromImage(data.get_regions_image()).astype(np.int32)
     return arr == rid
+
+
+# ---------------------------------------------------------------------------
+# Region-spatial crop (anatomy + per-group c-Fos signal, side-by-side ready)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RegionSpatialCrop:
+    """Bounded slab of anatomy + G001 + G002 signal centered on a region."""
+    acronym: str
+    bbox: tuple[tuple[int, int], tuple[int, int], tuple[int, int]]  # (z, y, x)
+    anatomy: np.ndarray  # (dz, dy, dx)
+    signal_g001: np.ndarray
+    signal_g002: np.ndarray
+    mask: np.ndarray  # bool (dz, dy, dx)
+    centroid: tuple[int, int, int]  # (z, y, x) within crop
+    signal_scale: tuple[float, float]  # shared (vmin, vmax)
+
+
+@lru_cache(maxsize=64)
+def region_spatial_crop(acronym: str, pad: int = 4) -> Optional[RegionSpatialCrop]:
+    """Crop anatomy + G001/G002 signal + mask to the region's bounding box.
+
+    Returns None when the region has no voxel mask in the atlas labelmap.
+    """
+    mask_full = mask_for_region(acronym)
+    if mask_full is None:
+        return None
+    coords = np.argwhere(mask_full)
+    if coords.size == 0:
+        return None
+
+    zmin, ymin, xmin = coords.min(axis=0)
+    zmax, ymax, xmax = coords.max(axis=0) + 1
+    nz, ny, nx = mask_full.shape
+    z0, z1 = max(0, int(zmin) - pad), min(nz, int(zmax) + pad)
+    y0, y1 = max(0, int(ymin) - pad), min(ny, int(ymax) + pad)
+    x0, x1 = max(0, int(xmin) - pad), min(nx, int(xmax) + pad)
+
+    anatomy = sitk.GetArrayFromImage(data.get_anatomy_image())
+    sig1 = sitk.GetArrayFromImage(data.get_g001_median_image())
+    sig2 = sitk.GetArrayFromImage(data.get_g002_median_image())
+
+    sl = (slice(z0, z1), slice(y0, y1), slice(x0, x1))
+    anat_c = anatomy[sl].astype(np.float32)
+    sig1_c = sig1[sl].astype(np.float32)
+    sig2_c = sig2[sl].astype(np.float32)
+    mask_c = mask_full[sl]
+
+    centroid_full = coords.mean(axis=0).astype(int)
+    centroid = (
+        int(centroid_full[0] - z0),
+        int(centroid_full[1] - y0),
+        int(centroid_full[2] - x0),
+    )
+
+    in_region = np.concatenate(
+        [sig1_c[mask_c].ravel(), sig2_c[mask_c].ravel()]
+    )
+    in_region = in_region[in_region > 0]
+    vmax = float(np.percentile(in_region, 99)) if in_region.size else 1.0
+    if vmax <= 0:
+        vmax = float(max(sig1_c.max(), sig2_c.max(), 1.0))
+
+    return RegionSpatialCrop(
+        acronym=acronym,
+        bbox=((int(z0), int(z1)), (int(y0), int(y1)), (int(x0), int(x1))),
+        anatomy=anat_c,
+        signal_g001=sig1_c,
+        signal_g002=sig2_c,
+        mask=np.asarray(mask_c, dtype=bool),
+        centroid=centroid,
+        signal_scale=(0.0, vmax),
+    )
