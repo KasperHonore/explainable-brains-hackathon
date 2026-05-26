@@ -11,11 +11,19 @@ Hackathon scope cuts (pre-authorized in the spec risk table):
 """
 from __future__ import annotations
 
+import os
+
 import streamlit as st
 
 from dashboard import data, llm
 from dashboard.niivue import BrainViewMode, VolumeLayer, render_brain_view
 from dashboard.panel import render_panel
+
+CHAT_DISABLED_BANNER = (
+    "Chat disabled — `ANTHROPIC_API_KEY` not found. The 3D viewer, "
+    "Top regions, and Region detail panels still work. Export the key "
+    "and restart Streamlit to enable chat."
+)
 
 NO_MATCH_HINT = (
     "I couldn't link your question to specific atlas regions — try mentioning "
@@ -53,6 +61,9 @@ def _handle_query(query: str) -> None:
 def main() -> None:
     st.set_page_config(page_title="Brain Earth", layout="wide")
     _init_state()
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        st.error(CHAT_DISABLED_BANNER)
 
     st.title("Brain Earth — c-Fos response to Semaglutide")
     col_view, col_panel = st.columns([2, 1], gap="medium")
