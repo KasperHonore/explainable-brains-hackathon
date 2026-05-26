@@ -17,7 +17,7 @@ import streamlit as st
 
 from dashboard import data, llm
 from dashboard.niivue import BrainViewMode, VolumeLayer, render_brain_view
-from dashboard.panel import render_panel
+from dashboard.panel import render_panel, render_top_regions_panel
 
 CHAT_DISABLED_BANNER = (
     "Chat disabled — `ANTHROPIC_API_KEY` not found. The 3D viewer, "
@@ -129,6 +129,8 @@ def main() -> None:
             st.caption(st.session_state.chat_status)
 
     with col_panel:
+        render_top_regions_panel()
+        st.divider()
         st.subheader("Region detail")
         render_panel(st.session_state.selected_acronyms)
 
