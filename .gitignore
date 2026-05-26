@@ -2,6 +2,11 @@
 bucket_access/config.py
 *.env
 
+# Browser-driven screenshots / Playwright sessions — local debug artifacts
+*.png
+.playwright-mcp/
+*-verdict.md
+
 # Dev Container — local development setup
 .devcontainer/
 

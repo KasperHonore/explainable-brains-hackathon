@@ -1,13 +1,13 @@
-"""Streamlit entry: 'Google Earth for Brain Activity' — Challenge B dashboard.
+"""Streamlit entry: 'Brain Earth' — Challenge B dashboard.
 
-MVP-5 milestone: chat → grounded acronym extraction → region info panel,
-alongside the niivue volume + diff overlay from MVP-3.
+Two tabs:
+- 3D viewer: niivue volume (Difference / Compare groups) + chat input,
+  with Top regions, Region detail, and Spatial side-by-side panels.
+- Classic plots: volcano, top movers bar, biology insight cards, and
+  per-animal density box+strip plot.
 
-Hackathon scope cuts (pre-authorized in the spec risk table):
-- Chat-driven brain re-coloring (AC-3 partial fallback): the spatial view
-  stays on the default diff map; selected regions surface in the side panel.
-- Click-to-pick (AC-5): Streamlit's inline HTML components have no clean
-  callback channel without a custom component. Deferred.
+All panels share `st.session_state.selected_acronyms` so clicking in
+any plot updates the entire dashboard.
 """
 from __future__ import annotations
 
