@@ -1,0 +1,47 @@
+- generic [ref=e3]:
+  - banner [ref=e6]:
+    - generic [ref=e9]:
+      - generic [ref=e11]:
+        - img "Running..." [ref=e12]:
+          - img [ref=e13]
+        - button "Stop" [ref=e18] [cursor=pointer]
+      - button "Deploy" [ref=e20] [cursor=pointer]:
+        - generic [ref=e22]: Deploy
+      - button "Main menu" [ref=e24] [cursor=pointer]:
+        - img [ref=e25]
+  - generic [ref=e28]:
+    - heading "Brain Earth — c-Fos response to Semaglutide" [level=1] [ref=e33]:
+      - text: Brain Earth — c-Fos response to Semaglutide
+      - generic [ref=e34]:
+        - link "Link to heading":
+          - /url: "#brain-earth-c-fos-response-to-semaglutide"
+          - img
+    - generic [ref=e36]:
+      - generic [ref=e38]:
+        - radiogroup "Brain view" [ref=e41] [cursor=pointer]:
+          - generic [ref=e42]:
+            - radio "Difference overlay (G002 − G001)" [checked]
+            - paragraph [ref=e47]: Difference overlay (G002 − G001)
+          - generic [ref=e48]:
+            - radio "Compare groups (side by side)"
+            - paragraph [ref=e53]: Compare groups (side by side)
+        - paragraph [ref=e58]: 3D anatomy + c-Fos difference. Red = up in Semaglutide, blue = down. Use the Z slider on the right to cut through the volume.
+        - iframe [ref=e60]:
+          - generic [active] [ref=f14e1]:
+            - generic [ref=f14e2]:
+              - generic [ref=f14e5]: G002 − G001
+              - generic [ref=f14e6]:
+                - generic [ref=f14e7]: Z
+                - slider [ref=f14e8]: "133"
+                - generic [ref=f14e9]: slice 134 / 268
+            - generic [ref=f14e10]: Drag to rotate · Z slider cuts the volume
+        - generic [ref=e64]:
+          - textbox "Ask about brain regions — e.g. 'regions involved in hunger and satiety'" [ref=e68]
+          - button "Send message" [disabled] [ref=e70]:
+            - img [ref=e71]
+      - heading "Top regions by effect size" [level=3] [ref=e80]:
+        - text: Top regions by effect size
+        - generic [ref=e81]:
+          - link "Link to heading":
+            - /url: "#top-regions-by-effect-size"
+            - img

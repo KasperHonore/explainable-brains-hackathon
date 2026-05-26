@@ -73,13 +73,18 @@ def render_brain_view(
 ) -> None:
     """Render the brain viewer. `layers` is used for DIFFERENCE mode only."""
     if mode == BrainViewMode.COMPARE_GROUPS:
+        # cal_min=4 hides background voxels below the p75-ish floor (G001/G002
+        # signal: p50=2, p90=4-6, p99=8-12), cal_max=10 saturates the bright
+        # regions, opacity 0.55 lets anatomy gray show through. Same idiom as
+        # FIX-1 on the diff overlay.
+        _g_signal_cal = dict(cal_min=4.0, cal_max=10.0)
         specs = [
             ViewerSpec(
                 canvas_id="gl-g001",
                 label="Vehicle (G001)",
                 layers=[
                     VolumeLayer("anatomy.nii.gz", colormap="gray", opacity=1.0),
-                    VolumeLayer("g001.nii.gz", colormap="warm", opacity=0.75),
+                    VolumeLayer("g001.nii.gz", colormap="warm", opacity=0.55, **_g_signal_cal),
                 ],
             ),
             ViewerSpec(
@@ -87,7 +92,7 @@ def render_brain_view(
                 label="Semaglutide (G002)",
                 layers=[
                     VolumeLayer("anatomy.nii.gz", colormap="gray", opacity=1.0),
-                    VolumeLayer("g002.nii.gz", colormap="warm", opacity=0.75),
+                    VolumeLayer("g002.nii.gz", colormap="warm", opacity=0.55, **_g_signal_cal),
                 ],
             ),
         ]
@@ -289,6 +294,22 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
       }}
     }}
 
+    function syncCameras() {{
+      // Bidirectional camera + zoom + pan sync between compare-mode viewers.
+      // Niivue 0.68.1 exposes broadcastTo([others], opts); pair each viewer
+      // pointing at the others so a drag/zoom on one mirrors to all.
+      if (viewers.length < 2) return;
+      const opts = {{ "3d": true, "2d": true, zoomPan: true, cal: false, sliceType: false }};
+      for (let i = 0; i < viewers.length; i++) {{
+        const others = viewers.filter((_, j) => j !== i);
+        try {{
+          viewers[i].broadcastTo(others, opts);
+        }} catch (e) {{
+          console.warn("[niivue] broadcastTo failed for viewer " + i, e);
+        }}
+      }}
+    }}
+
     (async () => {{
       try {{
         {inits_block}
@@ -299,8 +320,9 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
         slider.value = String(Math.floor((nz - 1) / 2));
         slider.addEventListener("input", () => applyZ(parseInt(slider.value, 10)));
         applyZ(parseInt(slider.value, 10));
+        syncCameras();
         log(viewers.length > 1
-          ? "Compare: drag either brain to rotate · Z slider cuts both"
+          ? "Compare: drag either brain — both rotate together · Z slider cuts both"
           : "Drag to rotate · Z slider cuts the volume");
         setTimeout(() => {{ status.style.opacity = "0.6"; }}, 4000);
       }} catch (e) {{
