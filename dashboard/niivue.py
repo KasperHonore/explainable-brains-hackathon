@@ -20,6 +20,9 @@ class VolumeLayer:
     path: Path
     colormap: str = "gray"
     opacity: float = 1.0
+    colormap_negative: str = ""  # niivue: paired colormap for negative voxels (divergent maps)
+    cal_min: float | None = None
+    cal_max: float | None = None
 
 
 def _encode_volume(path: Path) -> str:
@@ -43,9 +46,17 @@ def render_brain_view(layers: list[VolumeLayer], *, height: int = 600) -> None:
     volumes_js = []
     for layer in layers:
         url = _encode_volume(layer.path)
+        extras = []
+        if layer.colormap_negative:
+            extras.append(f'colormapNegative: "{layer.colormap_negative}"')
+        if layer.cal_min is not None:
+            extras.append(f"cal_min: {layer.cal_min}")
+        if layer.cal_max is not None:
+            extras.append(f"cal_max: {layer.cal_max}")
+        extras_str = (", " + ", ".join(extras)) if extras else ""
         volumes_js.append(
             f'{{ url: "{url}", name: "{layer.path.name}", '
-            f'colormap: "{layer.colormap}", opacity: {layer.opacity} }}'
+            f'colormap: "{layer.colormap}", opacity: {layer.opacity}{extras_str} }}'
         )
     volumes_block = ",\n          ".join(volumes_js)
 

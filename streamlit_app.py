@@ -1,33 +1,41 @@
 """Streamlit entry: 'Google Earth for Brain Activity' — Challenge B dashboard.
 
-MVP-1 milestone: walking skeleton. Renders the Allen mouse anatomy NIfTI in a
-niivue WebGL canvas inside Streamlit. No overlays, chat, or panels yet.
+MVP-3 milestone: anatomy + G002-G001 diff overlay (divergent red/blue),
+rendered in niivue. No chat or side panel yet — those land in MVP-4/5.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import streamlit as st
 
+from dashboard import data
 from dashboard.niivue import VolumeLayer, render_brain_view
-
-DATA_DIR = Path(__file__).resolve().parent / "data"
-ANATOMY = DATA_DIR / "brain_atlas_anatomy.nii.gz"
 
 
 def main() -> None:
     st.set_page_config(page_title="Brain Earth", layout="wide")
     st.title("Brain Earth — Challenge B")
-    st.caption("MVP-1: walking skeleton. Drag to rotate.")
+    st.caption(
+        "Anatomy + Semaglutide (G002) − Vehicle (G001) c-Fos difference. "
+        "Red = up in Semaglutide, blue = down. Drag to rotate."
+    )
 
-    if not ANATOMY.exists():
-        st.error(
-            f"Anatomy volume not found at {ANATOMY}. "
-            "Run the bucket download (see bucket_access/bucket_utils.py)."
-        )
+    try:
+        anatomy_path = data.get_anatomy_path()
+        diff_path = data.get_diff_map_path()
+    except Exception as exc:  # noqa: BLE001 — show any data-fetch failure
+        st.error(f"Could not load volumes: {exc}")
         return
 
-    render_brain_view([VolumeLayer(path=ANATOMY, colormap="gray", opacity=1.0)])
+    layers = [
+        VolumeLayer(path=anatomy_path, colormap="gray", opacity=1.0),
+        VolumeLayer(
+            path=diff_path,
+            colormap="warm",          # positive: red/orange
+            colormap_negative="winter",  # negative: blue/cyan
+            opacity=0.7,
+        ),
+    ]
+    render_brain_view(layers, height=600)
 
 
 if __name__ == "__main__":
