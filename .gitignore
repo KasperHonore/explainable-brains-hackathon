@@ -2,6 +2,16 @@
 bucket_access/config.py
 *.env
 
+# Dev Container — local development setup
+.devcontainer/
+
+# agentic-dev-skills (internal — local/devcontainer only; not part of the hackathon deliverable)
+.claude/
+CLAUDE.md
+.cursor/skills/
+scripts/
+.github/pull_request_template.md
+
 # data files — keep data in the bucket, not the repo
 *.h5
 *.nii
@@ -212,6 +222,7 @@ cython_debug/
 # .vscode/
 # Temporary file for partial code execution
 tempCodeRunnerFile.py
+.tmp*
 
 # Ruff stuff:
 .ruff_cache/
