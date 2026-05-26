@@ -63,13 +63,12 @@ def main() -> None:
     col_view, col_panel = st.columns([2, 1], gap="medium")
 
     with col_view:
-        # Touch the data-layer loaders to ensure the underlying files are on disk;
-        # niivue then fetches them via /app/static/<name> (see static/ symlinks).
+        # Make sure static/<name>.nii.gz exist (downloads + copies on first run);
+        # niivue fetches them via /app/static/<name>.
         try:
-            data.get_anatomy_path()
-            data.get_diff_map_path()
+            data.ensure_static_volumes()
         except Exception as exc:  # noqa: BLE001
-            st.error(f"Could not load volumes: {exc}")
+            st.error(f"Could not prepare volumes: {exc}")
             return
 
         layers = [

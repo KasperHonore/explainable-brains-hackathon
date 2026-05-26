@@ -18,8 +18,18 @@ import streamlit as st
 from bucket_access.bucket_utils import download_file
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 BUCKET_PREFIX_TAB = "challengeB/tabular_data_quantification"
 BUCKET_PREFIX_NIFTI = "challengeB/spatial_brain_maps"
+
+# Streamlit's static mount serves /app/static/<filename>. Streamlit's safe-join
+# refuses symlinks, so the niivue iframe needs real files under static/. We
+# copy from data/ on first run rather than duplicating downloads.
+_STATIC_COPY_MAP = {
+    "anatomy.nii.gz": "brain_atlas_anatomy.nii.gz",
+    "diff.nii.gz": "cfos_group_median_difference_G002_vs_G001.nii.gz",
+    "regions.nii.gz": "brain_atlas_regions.nii.gz",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +95,23 @@ def _ensure_nifti(name: str) -> Path:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         download_file(f"{BUCKET_PREFIX_NIFTI}/{name}", str(local))
     return local
+
+
+def ensure_static_volumes() -> None:
+    """Make sure static/<short>.nii.gz exists for every volume niivue serves.
+
+    Streamlit's static mount can't follow symlinks, so we copy the downloaded
+    NIfTIs from data/ into static/ on first call. Idempotent.
+    """
+    import shutil
+
+    STATIC_DIR.mkdir(parents=True, exist_ok=True)
+    for short_name, bucket_name in _STATIC_COPY_MAP.items():
+        target = STATIC_DIR / short_name
+        if target.exists() and target.stat().st_size > 0:
+            continue
+        source = _ensure_nifti(bucket_name)
+        shutil.copy2(source, target)
 
 
 @st.cache_resource
