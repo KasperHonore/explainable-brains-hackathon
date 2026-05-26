@@ -28,6 +28,8 @@ BUCKET_PREFIX_NIFTI = "challengeB/spatial_brain_maps"
 _STATIC_COPY_MAP = {
     "anatomy.nii.gz": "brain_atlas_anatomy.nii.gz",
     "diff.nii.gz": "cfos_group_median_difference_G002_vs_G001.nii.gz",
+    "g001.nii.gz": "cfos_G001_median.nii.gz",
+    "g002.nii.gz": "cfos_G002_median.nii.gz",
     "regions.nii.gz": "brain_atlas_regions.nii.gz",
 }
 
@@ -127,6 +129,16 @@ def get_regions_path() -> Path:
 @st.cache_resource
 def get_diff_map_path() -> Path:
     return _ensure_nifti("cfos_group_median_difference_G002_vs_G001.nii.gz")
+
+
+@st.cache_resource
+def get_g001_median_path() -> Path:
+    return _ensure_nifti("cfos_G001_median.nii.gz")
+
+
+@st.cache_resource
+def get_g002_median_path() -> Path:
+    return _ensure_nifti("cfos_G002_median.nii.gz")
 
 
 @st.cache_resource
