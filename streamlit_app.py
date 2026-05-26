@@ -63,17 +63,19 @@ def main() -> None:
     col_view, col_panel = st.columns([2, 1], gap="medium")
 
     with col_view:
+        # Touch the data-layer loaders to ensure the underlying files are on disk;
+        # niivue then fetches them via /app/static/<name> (see static/ symlinks).
         try:
-            anatomy_path = data.get_anatomy_path()
-            diff_path = data.get_diff_map_path()
+            data.get_anatomy_path()
+            data.get_diff_map_path()
         except Exception as exc:  # noqa: BLE001
             st.error(f"Could not load volumes: {exc}")
             return
 
         layers = [
-            VolumeLayer(path=anatomy_path, colormap="gray", opacity=1.0),
+            VolumeLayer(static_name="anatomy.nii.gz", colormap="gray", opacity=1.0),
             VolumeLayer(
-                path=diff_path,
+                static_name="diff.nii.gz",
                 colormap="warm",
                 colormap_negative="winter",
                 opacity=0.7,

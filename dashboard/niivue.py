@@ -1,62 +1,61 @@
 """Niivue WebGL viewer embedded in Streamlit via st.components.v1.html.
 
-`render_brain_view` accepts a list of (path, modality, colormap, opacity) tuples
-and emits the HTML+JS needed to render them as a stack inside an iframe.
-The first volume is the base; subsequent volumes are overlays.
+Volumes are served by Streamlit's static-file mount at /app/static/<name>
+(see .streamlit/config.toml: `server.enableStaticServing = true`).
+The component iframe and the static mount share the Streamlit origin, so
+relative URLs work without CORS headers.
 """
 from __future__ import annotations
 
-import base64
 from dataclasses import dataclass
 from pathlib import Path
 
 import streamlit.components.v1 as components
 
 NIIVUE_CDN = "https://unpkg.com/@niivue/niivue@latest/dist/niivue.umd.js"
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 
 @dataclass(frozen=True)
 class VolumeLayer:
-    path: Path
+    # `static_name` is the filename inside `static/` (a symlink into `data/`),
+    # served by Streamlit at /app/static/<name>.
+    static_name: str
     colormap: str = "gray"
     opacity: float = 1.0
-    colormap_negative: str = ""  # niivue: paired colormap for negative voxels (divergent maps)
+    colormap_negative: str = ""  # niivue: paired colormap for negative voxels
     cal_min: float | None = None
     cal_max: float | None = None
 
 
-def _encode_volume(path: Path) -> str:
-    """Read a NIfTI file and return a base64 data URL.
-
-    Niivue accepts data URLs for `volumes[].url`, so we inline the file bytes
-    rather than serving them over HTTP. Fine at ~50–100 MB per volume.
-    """
-    data = path.read_bytes()
-    return "data:application/octet-stream;base64," + base64.b64encode(data).decode("ascii")
-
-
 def render_brain_view(layers: list[VolumeLayer], *, height: int = 600) -> None:
-    """Render a niivue 3D view of the given volume stack.
-
-    The first layer is the base; later layers are overlays in z-order.
-    """
     if not layers:
         raise ValueError("render_brain_view requires at least one VolumeLayer")
 
+    for layer in layers:
+        path = STATIC_DIR / layer.static_name
+        if not path.exists():
+            raise FileNotFoundError(
+                f"Expected {path} to exist (symlink into data/). "
+                "Did `static/` get set up?"
+            )
+
     volumes_js = []
     for layer in layers:
-        url = _encode_volume(layer.path)
-        extras = []
+        # Absolute URL relative to the Streamlit origin. Works from inside the
+        # components-iframe because Streamlit serves the iframe and the static
+        # files from the same host:port.
+        url = f"/app/static/{layer.static_name}"
+        extras = [f'colormap: "{layer.colormap}"', f"opacity: {layer.opacity}"]
         if layer.colormap_negative:
             extras.append(f'colormapNegative: "{layer.colormap_negative}"')
         if layer.cal_min is not None:
             extras.append(f"cal_min: {layer.cal_min}")
         if layer.cal_max is not None:
             extras.append(f"cal_max: {layer.cal_max}")
-        extras_str = (", " + ", ".join(extras)) if extras else ""
+        extras_str = ", ".join(extras)
         volumes_js.append(
-            f'{{ url: "{url}", name: "{layer.path.name}", '
-            f'colormap: "{layer.colormap}", opacity: {layer.opacity}{extras_str} }}'
+            f'{{ url: "{url}", name: "{layer.static_name}", {extras_str} }}'
         )
     volumes_block = ",\n          ".join(volumes_js)
 
@@ -67,27 +66,50 @@ def render_brain_view(layers: list[VolumeLayer], *, height: int = 600) -> None:
   <style>
     html, body {{ margin: 0; padding: 0; background: #000; height: 100%; }}
     #gl {{ width: 100%; height: {height}px; display: block; }}
-    #err {{ color: #f88; font-family: sans-serif; padding: 8px; display: none; }}
+    #status {{
+      color: #ccc; font-family: sans-serif; padding: 6px 10px;
+      position: absolute; top: 4px; left: 4px;
+      background: rgba(0,0,0,0.4); border-radius: 4px;
+      font-size: 12px; max-width: 80%;
+    }}
+    .err {{ color: #f88; }}
   </style>
 </head>
 <body>
   <canvas id="gl"></canvas>
-  <div id="err"></div>
+  <div id="status">loading niivue…</div>
   <script src="{NIIVUE_CDN}"></script>
   <script>
+    const status = document.getElementById("status");
+    const log = (msg, isErr) => {{
+      status.className = isErr ? "err" : "";
+      status.textContent = msg;
+      console[isErr ? "error" : "log"]("[niivue]", msg);
+    }};
     (async () => {{
       try {{
-        const nv = new niivue.Niivue({{ show3Dcrosshair: true, isOrientCube: true }});
+        if (!window.niivue || !niivue.Niivue) {{
+          throw new Error("niivue UMD did not load — check CDN reachability");
+        }}
+        const nv = new niivue.Niivue({{
+          show3Dcrosshair: true,
+          isOrientCube: true,
+          backColor: [0, 0, 0, 1],
+        }});
         await nv.attachTo("gl");
+        log("loading volumes…");
         await nv.loadVolumes([
           {volumes_block}
         ]);
-        nv.setSliceType(nv.sliceTypeRender);
-        window.__nv = nv;  // dev handle for console poking
+        log(`loaded ${{nv.volumes.length}} volume(s) — drag to rotate`);
+        // Multiplanar (3 slices + 3D render) is niivue's most informative default.
+        if (typeof nv.sliceTypeMultiplanar === "number") {{
+          nv.setSliceType(nv.sliceTypeMultiplanar);
+        }}
+        window.__nv = nv;
+        setTimeout(() => {{ status.style.display = "none"; }}, 3000);
       }} catch (e) {{
-        const el = document.getElementById("err");
-        el.style.display = "block";
-        el.textContent = "niivue init failed: " + (e && e.message ? e.message : e);
+        log("init failed: " + (e && e.message ? e.message : e), true);
         console.error(e);
       }}
     }})();
