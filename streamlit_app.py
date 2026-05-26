@@ -91,6 +91,10 @@ def main() -> None:
         if view_mode == BrainViewMode.COMPARE_GROUPS:
             render_brain_view([], height=560, mode=BrainViewMode.COMPARE_GROUPS)
         else:
+            # Threshold near-zero diff voxels to fully transparent — the diff
+            # signal is dense (every brain voxel has some value), so without
+            # a dead-zone the overlay drowns the anatomy. cal_min=1.0 hides
+            # |log2FC| < 1; cal_max=3.0 saturates at p90 abs.
             layers = [
                 VolumeLayer(static_name="anatomy.nii.gz", colormap="gray", opacity=1.0),
                 VolumeLayer(
@@ -98,6 +102,8 @@ def main() -> None:
                     colormap="warm",
                     colormap_negative="winter",
                     opacity=0.7,
+                    cal_min=1.0,
+                    cal_max=3.0,
                 ),
             ]
             render_brain_view(layers, height=560, mode=BrainViewMode.DIFFERENCE)

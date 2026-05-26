@@ -29,6 +29,8 @@ class VolumeLayer:
     colormap: str = "gray"
     opacity: float = 1.0
     colormap_negative: str = ""
+    # For divergent overlays, cal_min acts as a symmetric threshold —
+    # voxels with |value| < cal_min render transparent.
     cal_min: float | None = None
     cal_max: float | None = None
 
@@ -271,8 +273,10 @@ def _init_script(specs: list[ViewerSpec], *, volumes_by_canvas: dict[str, str]) 
         const cy = Math.floor(ny / 2);
         nv.moveCrosshairInVox(cx, cy, zi);
         // Clip plane: reveal tissue below this Z (superior → inferior slider).
+        // depth in roughly [-0.6, 1.0] — top of range hides the plane outside
+        // the volume (no clip), bottom cuts deep into interior.
         const frac = nz > 1 ? zi / (nz - 1) : 0;
-        const depth = 2.0 - frac * 1.55;
+        const depth = 1.0 - frac * 1.6;
         if (typeof nv.setClipPlane === "function") {{
           nv.setClipPlane([depth, 0, 90]);
         }}
