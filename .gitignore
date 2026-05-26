@@ -11,6 +11,7 @@ CLAUDE.md
 .cursor/skills/
 scripts/
 .github/pull_request_template.md
+.mcp.json
 
 # data files — keep data in the bucket, not the repo
 *.h5

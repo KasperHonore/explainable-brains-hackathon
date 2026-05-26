@@ -1,0 +1,204 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    html, body { margin: 0; padding: 0; background: #0a0a0a; color: #ccc;
+      font-family: system-ui, sans-serif; height: 100%; }
+    .viewer-shell { display: flex; height: 100%; width: 100%; }
+    .canvas-wrap { position: relative; flex: 1; min-width: 0; height: 100%;
+      background: #000; }
+    .canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+    .canvas-label {
+      font-size: 11px; padding: 4px 8px; background: rgba(0,0,0,0.55);
+      position: absolute; top: 6px; left: 6px; z-index: 2; border-radius: 3px;
+    }
+    .z-rail {
+      width: 56px; flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: center; padding: 10px 6px; background: #141414;
+      border-left: 1px solid #333; gap: 8px;
+    }
+    .z-title { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; }
+    #zSlider {
+      flex: 1; width: 28px; accent-color: #6af;
+      writing-mode: vertical-lr; direction: rtl;
+    }
+    .z-label { font-size: 10px; text-align: center; line-height: 1.2; max-width: 52px; }
+    #status {
+      color: #aaa; font-size: 11px; padding: 4px 10px;
+      position: absolute; bottom: 4px; left: 4px;
+      background: rgba(0,0,0,0.55); border-radius: 3px;
+      pointer-events: none;
+    }
+    .err { color: #f88; }
+  </style>
+</head>
+<body>
+  <div class="viewer-shell">
+    <div class="canvas-wrap">
+      <canvas id="gl"></canvas>
+      <div class="canvas-label" id="canvasLabel">G002 − G001</div>
+      <div id="status">loading…</div>
+    </div>
+    <div class="z-rail">
+      <span class="z-title">Z</span>
+      <input type="range" id="zSlider" min="0" max="1" value="0" orient="vertical" />
+      <span id="zLabel" class="z-label">…</span>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/@niivue/niivue@0.68.1/dist/niivue.umd.js"></script>
+  <script>
+    const statusEl = document.getElementById("status");
+    const log = (msg, isErr) => {
+      statusEl.className = isErr ? "err" : "";
+      statusEl.textContent = msg;
+      console[isErr ? "error" : "log"]("[brain_view]", msg);
+    };
+
+    const send = (type, data = {}) =>
+      window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type }, data), "*");
+
+    let nv = null;
+    let regionsIdx = -1;
+    let latestLabel = null;
+    let pickNonce = 0;
+    let pickTimer = null;
+    let rendered = false;
+    let originBase = null;
+
+    function resolveUrl(rel) {
+      if (!originBase || /^https?:/i.test(rel)) return rel;
+      return originBase.replace(/\/$/, "") + rel;
+    }
+
+    function readLabelFromValues(values) {
+      if (regionsIdx < 0 || !values || values[regionsIdx] == null) return null;
+      const entry = values[regionsIdx];
+      const raw = typeof entry === "object" ? entry.value : entry;
+      if (raw == null || Number.isNaN(raw)) return null;
+      return Math.round(raw);
+    }
+
+    function schedulePick() {
+      if (regionsIdx < 0) return;
+      if (pickTimer) clearTimeout(pickTimer);
+      pickTimer = setTimeout(() => {
+        if (latestLabel == null) return;
+        pickNonce += 1;
+        send("streamlit:setComponentValue", {
+          value: { label_id: latestLabel, nonce: pickNonce },
+          dataType: "json",
+        });
+      }, 220); // debounce: fires after slider drag / canvas click settles
+    }
+
+    function volumeDims(viewer) {
+      const hdr = viewer.volumes[0]?.hdr;
+      if (!hdr || !hdr.dims) return { nx: 1, ny: 1, nz: 1 };
+      return { nx: hdr.dims[1], ny: hdr.dims[2], nz: hdr.dims[3] };
+    }
+
+    function applyZ(z) {
+      const slider = document.getElementById("zSlider");
+      const label = document.getElementById("zLabel");
+      const { nx, ny, nz } = volumeDims(nv);
+      const zi = Math.max(0, Math.min(nz - 1, z));
+      const cx = Math.floor(nx / 2);
+      const cy = Math.floor(ny / 2);
+      nv.moveCrosshairInVox(cx, cy, zi);
+      const frac = nz > 1 ? zi / (nz - 1) : 0;
+      const depth = 1.0 - frac * 1.6;
+      if (typeof nv.setClipPlane === "function") {
+        nv.setClipPlane([depth, 0, 90]);
+      }
+      nv.drawScene();
+      label.textContent = `slice ${zi + 1} / ${nz}`;
+      slider.value = String(zi);
+      slider.max = String(nz - 1);
+    }
+
+    async function renderOnce(args) {
+      if (rendered) return;
+      rendered = true;
+
+      const layers = args.layers || [];
+      const regionsLayerName = args.regions_layer_name || "";
+      const height = args.height || 600;
+      const label = args.label || "";
+
+      if (label) document.getElementById("canvasLabel").textContent = label;
+
+      try {
+        if (!window.niivue || !niivue.Niivue) {
+          throw new Error("niivue UMD did not load — check CDN reachability");
+        }
+
+        nv = new niivue.Niivue({
+          show3Dcrosshair: true,
+          isOrientCube: true,
+          backColor: [0, 0, 0, 1],
+        });
+        const canvas = document.getElementById("gl");
+        await nv.attachToCanvas(canvas);
+        log("loading volumes…");
+
+        const volumeSpec = layers.map((l, i) => {
+          const spec = {
+            url: resolveUrl(l.url),
+            name: l.name,
+            colormap: l.colormap || "gray",
+            opacity: l.opacity == null ? 1.0 : l.opacity,
+          };
+          if (l.colormapNegative) spec.colormapNegative = l.colormapNegative;
+          if (l.cal_min != null) spec.cal_min = l.cal_min;
+          if (l.cal_max != null) spec.cal_max = l.cal_max;
+          if (l.name === regionsLayerName) regionsIdx = i;
+          return spec;
+        });
+
+        await nv.loadVolumes(volumeSpec);
+        nv.setSliceType(nv.sliceTypeRender);
+        if (nv.opts) nv.opts.multiplanarShowRender = 0;
+
+        nv.onLocationChange = (data) => {
+          latestLabel = readLabelFromValues(data && data.values);
+          schedulePick();
+        };
+
+        const slider = document.getElementById("zSlider");
+        const { nz } = volumeDims(nv);
+        slider.min = "0";
+        slider.max = String(Math.max(0, nz - 1));
+        slider.value = String(Math.floor((nz - 1) / 2));
+        slider.addEventListener("input", () => applyZ(parseInt(slider.value, 10)));
+        applyZ(parseInt(slider.value, 10));
+
+        const canvasEl = document.getElementById("gl");
+        canvasEl.addEventListener("mouseup", schedulePick);
+        canvasEl.addEventListener("touchend", schedulePick);
+
+        log("drag to rotate · Z slider cuts the volume · click to pick a region");
+        send("streamlit:setFrameHeight", { height: height + 12 });
+        setTimeout(() => { statusEl.style.opacity = "0.6"; }, 4000);
+        window.__nv = nv;
+      } catch (e) {
+        log("init failed: " + (e && e.message ? e.message : e), true);
+        console.error(e);
+      }
+    }
+
+    window.addEventListener("message", (event) => {
+      const msg = event.data;
+      if (!msg || typeof msg !== "object") return;
+      if (msg.type === "streamlit:render") {
+        if (!originBase) originBase = event.origin;
+        renderOnce(msg.args || {});
+      }
+    });
+
+    send("streamlit:componentReady", { apiVersion: 1 });
+    send("streamlit:setFrameHeight", { height: 600 });
+  </script>
+</body>
+</html>

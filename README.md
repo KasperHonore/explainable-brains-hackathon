@@ -43,6 +43,19 @@ challenging to interpret without specialist tools.
 
 **→ [Challenge B — solution, data, and quick start](CHALLENGE_B.md)**
 
+### Running the demo (Challenge B)
+
+```bash
+conda activate explainable-brains
+bash ./run_demo.sh           # requires ANTHROPIC_API_KEY (chat on)
+# or:
+bash ./run_demo.sh --allow-no-key   # viewer-only fallback
+```
+
+The helper sources `/workspace/.env` if present, refuses to launch when
+`ANTHROPIC_API_KEY` is unset, and otherwise execs Streamlit on port 8501.
+A red banner shows in the browser if the key is missing.
+
 ---
 
 ## Setup

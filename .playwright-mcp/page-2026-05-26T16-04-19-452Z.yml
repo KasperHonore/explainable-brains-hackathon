@@ -1,0 +1,49 @@
+- generic [ref=e3]:
+  - banner [ref=e6]:
+    - generic [ref=e9]:
+      - button "Deploy" [ref=e11] [cursor=pointer]:
+        - generic [ref=e13]: Deploy
+      - button "Main menu" [ref=e15] [cursor=pointer]:
+        - img [ref=e16]
+  - generic [ref=e19]:
+    - heading "Brain Earth — c-Fos response to Semaglutide" [level=1] [ref=e24]:
+      - text: Brain Earth — c-Fos response to Semaglutide
+      - generic [ref=e25]:
+        - link "Link to heading":
+          - /url: "#brain-earth-c-fos-response-to-semaglutide"
+          - img
+    - generic [ref=e27]:
+      - generic [ref=e29]:
+        - radiogroup "Brain view" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - radio "Difference overlay (G002 − G001)"
+            - paragraph [ref=e38]: Difference overlay (G002 − G001)
+          - generic [ref=e39]:
+            - radio "Compare groups (side by side)" [checked] [active]
+            - paragraph [ref=e44]: Compare groups (side by side)
+        - paragraph [ref=e49]: Vehicle vs Semaglutide group median c-Fos maps in the same atlas space. Shared Z slider on the right.
+        - iframe [ref=e51]:
+          - generic [active] [ref=f2e1]:
+            - generic [ref=f2e2]:
+              - generic [ref=f2e3]:
+                - generic [ref=f2e5]: Vehicle (G001)
+                - generic [ref=f2e8]: Semaglutide (G002)
+              - generic [ref=f2e10]:
+                - generic [ref=f2e11]: Z
+                - slider [ref=f2e12]: "133"
+                - generic [ref=f2e13]: slice 134 / 268
+            - generic [ref=f2e14]: "Compare: drag either brain to rotate · Z slider cuts both"
+        - generic [ref=e72]:
+          - textbox "Ask about brain regions — e.g. 'regions involved in hunger and satiety'" [ref=e76]
+          - button "Send message" [disabled] [ref=e78]:
+            - img [ref=e79]
+        - paragraph [ref=e86]: chat unavailable — ANTHROPIC_API_KEY is not set. Export it in the shell before launching Streamlit.
+      - generic [ref=e55]:
+        - heading "Region detail" [level=3] [ref=e60]:
+          - text: Region detail
+          - generic [ref=e61]:
+            - link "Link to heading":
+              - /url: "#region-detail"
+              - img
+        - alert [ref=e64]:
+          - paragraph [ref=e69]: Ask the chat a question about brain regions to populate this panel.
