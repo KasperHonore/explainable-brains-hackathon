@@ -1,21 +1,27 @@
-"""Niivue WebGL viewer embedded in Streamlit via st.components.v1.html.
+"""Niivue WebGL viewer.
 
-Default layout: one full-canvas 3D volume render (drag to rotate all axes) plus a
-vertical Z slider on the right that moves the crosshair and clip plane.
+DIFFERENCE mode goes through a Streamlit custom component
+(`dashboard/brain_view/index.html`) so the labelmap voxel under the crosshair
+can be posted back to Python on mouseup / Z-slider release.
 
-Compare mode: side-by-side Vehicle (G001) vs Semaglutide (G002) with a shared Z slider.
+COMPARE_GROUPS mode stays on the one-way `st.components.v1.html` path — no pick
+needed when comparing two volumes side by side.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+from typing import Any, Optional
 
 import streamlit.components.v1 as components
 
 # Pin a recent build — @latest broke layouts before.
 NIIVUE_CDN = "https://unpkg.com/@niivue/niivue@0.68.1/dist/niivue.umd.js"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_COMPONENT_DIR = Path(__file__).resolve().parent / "brain_view"
+
+_brain_view = components.declare_component("brain_view", path=str(_COMPONENT_DIR))
 
 
 class BrainViewMode(str, Enum):
@@ -70,8 +76,19 @@ def render_brain_view(
     *,
     height: int = 600,
     mode: BrainViewMode = BrainViewMode.DIFFERENCE,
-) -> None:
-    """Render the brain viewer. `layers` is used for DIFFERENCE mode only."""
+    regions_layer_name: str = "",
+    key: str = "brain_view",
+) -> Optional[dict[str, Any]]:
+    """Render the brain viewer.
+
+    DIFFERENCE mode returns the latest crosshair pick (or None until the user
+    interacts). `regions_layer_name` selects which loaded layer is queried for
+    the atlas label — typically "regions.nii.gz", loaded with opacity 0 so it
+    stays invisible.
+
+    COMPARE_GROUPS mode always returns None — it uses the one-way
+    `components.html` path and ignores `layers`.
+    """
     if mode == BrainViewMode.COMPARE_GROUPS:
         specs = [
             ViewerSpec(
@@ -91,39 +108,40 @@ def render_brain_view(
                 ],
             ),
         ]
+        for spec in specs:
+            _check_static(spec.layers)
         html = _html_compare(specs, height=height)
-    else:
-        if not layers:
-            raise ValueError("DIFFERENCE mode requires at least one overlay layer")
-        html = _html_single(
-            ViewerSpec(canvas_id="gl", label="G002 − G001", layers=layers),
-            height=height,
-        )
+        components.html(html, height=height + 36, scrolling=False)
+        return None
 
-    components.html(html, height=height + 36, scrolling=False)
+    if not layers:
+        raise ValueError("DIFFERENCE mode requires at least one overlay layer")
+    _check_static(layers)
 
+    layer_specs = [
+        {
+            "url": f"/app/static/{layer.static_name}",
+            "name": layer.static_name,
+            "colormap": layer.colormap,
+            "opacity": layer.opacity,
+            "colormapNegative": layer.colormap_negative or None,
+            "cal_min": layer.cal_min,
+            "cal_max": layer.cal_max,
+        }
+        for layer in layers
+    ]
 
-def _html_single(spec: ViewerSpec, *, height: int) -> str:
-    _check_static(spec.layers)
-    volumes_js = ",\n          ".join(_layer_to_js(layer) for layer in spec.layers)
-    return _html_shell(
+    return _brain_view(
+        layers=layer_specs,
+        regions_layer_name=regions_layer_name,
         height=height,
-        body=f"""
-  <div class="viewer-shell">
-    <div class="canvas-wrap">
-      <canvas id="{spec.canvas_id}"></canvas>
-      <div class="canvas-label">{spec.label}</div>
-    </div>
-    {_z_rail_html()}
-  </div>
-""",
-        init_script=_init_script([spec], volumes_by_canvas={spec.canvas_id: volumes_js}),
+        label="G002 − G001",
+        key=key,
+        default=None,
     )
 
 
 def _html_compare(specs: list[ViewerSpec], *, height: int) -> str:
-    for spec in specs:
-        _check_static(spec.layers)
     panels = "\n".join(
         f"""
     <div class="compare-panel">

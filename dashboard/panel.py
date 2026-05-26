@@ -6,10 +6,12 @@
 """
 from __future__ import annotations
 
+from typing import Optional
+
 import pandas as pd
 import streamlit as st
 
-from dashboard import domain
+from dashboard import data, domain
 
 PANEL_COLUMNS = [
     "acronym",
@@ -116,3 +118,26 @@ def render_panel(selected_acronyms: list[str]) -> None:
             ),
         },
     )
+
+
+def render_marker_readout(region: Optional[data.ResolvedRegion]) -> None:
+    """One-line region readout for the niivue crosshair pick."""
+    if region is None:
+        st.caption("Move the crosshair or click in the 3D view to inspect a region here.")
+        return
+
+    st.markdown(f"**Under marker:** `{region.acronym}` — {region.name}")
+
+    effects = domain.resolve_effects([region.acronym])
+    if not effects:
+        st.caption("No group statistics for this region.")
+        return
+
+    eff = effects[0]
+    parts = []
+    if pd.notna(eff.log2_fc):
+        parts.append(f"log2 FC {eff.log2_fc:+.2f}")
+    if pd.notna(eff.p_uncorrected):
+        parts.append(f"p = {eff.p_uncorrected:.3g}")
+    if parts:
+        st.caption(" · ".join(parts))

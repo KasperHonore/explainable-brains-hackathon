@@ -35,6 +35,19 @@ def _init_state() -> None:
     st.session_state.setdefault("selected_acronyms", [])
     st.session_state.setdefault("chat_text", "")
     st.session_state.setdefault("chat_status", "")
+    st.session_state.setdefault("marker_region", None)
+    st.session_state.setdefault("marker_nonce", None)
+
+
+def _handle_marker_pick(pick: dict | None) -> None:
+    """Resolve a crosshair-pick payload into a ResolvedRegion in session state."""
+    if not pick:
+        return
+    nonce = pick.get("nonce")
+    if nonce is None or nonce == st.session_state.marker_nonce:
+        return
+    st.session_state.marker_nonce = nonce
+    st.session_state.marker_region = data.resolve_label(pick.get("label_id", 0))
 
 
 def _handle_query(query: str) -> None:
@@ -116,8 +129,17 @@ def main() -> None:
                     cal_min=1.0,
                     cal_max=3.0,
                 ),
+                # Invisible labelmap layer — queried for the region under the
+                # crosshair on mouseup / Z-slider release.
+                VolumeLayer(static_name="regions.nii.gz", colormap="gray", opacity=0.0),
             ]
-            render_brain_view(layers, height=560, mode=BrainViewMode.DIFFERENCE)
+            pick = render_brain_view(
+                layers,
+                height=560,
+                mode=BrainViewMode.DIFFERENCE,
+                regions_layer_name="regions.nii.gz",
+            )
+            _handle_marker_pick(pick)
 
         query = st.chat_input("Ask about brain regions — e.g. 'regions involved in hunger and satiety'")
         if query:
@@ -132,6 +154,8 @@ def main() -> None:
         render_top_regions_panel()
         st.divider()
         st.subheader("Region detail")
+        render_marker_readout(st.session_state.marker_region)
+        st.divider()
         render_panel(st.session_state.selected_acronyms)
 
 
